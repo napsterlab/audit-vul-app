@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Audit — VulnerableBank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --panel: #131b24;
+    --border: #1e2d3d;
+    --border2: #243447;
+    --text: #e2eaf4;
+    --text2: #7a9bb5;
+    --text3: #3d5a72;
+    --red: #ff3b5c;
+    --red-dim: rgba(255,59,92,0.12);
+    --red-glow: rgba(255,59,92,0.3);
+    --orange: #ff7733;
+    --orange-dim: rgba(255,119,51,0.1);
+    --yellow: #f5c518;
+    --yellow-dim: rgba(245,197,24,0.1);
+    --green: #39d353;
+    --green-dim: rgba(57,211,83,0.1);
+    --cyan: #00c8ff;
+    --cyan-dim: rgba(0,200,255,0.08);
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── GLOW ORBS ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-red { width: 400px; height: 400px; background: rgba(255,59,92,0.06); top: -100px; right: -100px; }
+  .orb-cyan { width: 300px; height: 300px; background: rgba(0,200,255,0.05); bottom: 20%; left: -80px; }
+
+  /* ── LAYOUT ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── TERMINAL HEADER ── */
+  .terminal-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 40px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    position: relative;
+  }
+  .terminal-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .d1 { background: #ff5f56; }
+  .d2 { background: #ffbd2e; }
+  .d3 { background: #27c93f; }
+  .terminal-path { color: var(--text2); margin-left: 8px; }
+  .terminal-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    background: var(--cyan);
+    margin-left: 4px;
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── HERO ── */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 48px;
+    padding-top: 8px;
+  }
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 1px;
+    background: var(--red);
+  }
+  .hero-title {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #e2eaf4 40%, #7a9bb5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .hero-sub span { color: var(--cyan); }
+
+  .risk-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 2px solid var(--red);
+    box-shadow: 0 0 30px var(--red-glow), inset 0 0 30px rgba(255,59,92,0.05);
+    background: var(--bg);
+    flex-shrink: 0;
+    animation: pulse-ring 3s ease-in-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%,100% { box-shadow: 0 0 30px var(--red-glow), inset 0 0 30px rgba(255,59,92,0.05); }
+    50% { box-shadow: 0 0 50px var(--red-glow), inset 0 0 40px rgba(255,59,92,0.08); }
+  }
+  .risk-badge-label { font-family: var(--mono); font-size: 9px; color: var(--red); letter-spacing: 0.1em; text-transform: uppercase; }
+  .risk-badge-score { font-size: 36px; font-weight: 800; color: var(--red); line-height: 1; margin: 4px 0; }
+  .risk-badge-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); }
+
+  /* ── METRICS STRIP ── */
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+  .metric {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .metric::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .metric:hover { transform: translateY(-2px); }
+  .m-critical::before { background: var(--red); }
+  .m-high::before { background: var(--orange); }
+  .m-medium::before { background: var(--yellow); }
+  .m-low::before { background: var(--green); }
+  .m-total::before { background: var(--cyan); }
+  .metric-num {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .metric-num.c { color: var(--red); }
+  .metric-num.h { color: var(--orange); }
+  .metric-num.m { color: var(--yellow); }
+  .metric-num.l { color: var(--green); }
+  .metric-num.t { color: var(--cyan); }
+  .metric-label { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ── SECTION HEADER ── */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sec-head-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .sec-head-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+  .sec-head-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── TABS ── */
+  .tab-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .tab-btn:hover { color: var(--text2); background: var(--bg3); }
+  .tab-btn.active {
+    background: var(--bg3);
+    color: var(--cyan);
+    border: 1px solid var(--border2);
+  }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── FILTER BAR ── */
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .filter-label { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-right: 4px; }
+  .filter-pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .filter-pill:hover { border-color: var(--border2); color: var(--text2); }
+  .filter-pill.active-all { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+  .filter-pill.active-critical { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .filter-pill.active-high { border-color: var(--orange); color: var(--orange); background: var(--orange-dim); }
+  .filter-pill.active-medium { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-dim); }
+  .filter-pill.active-low { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+  /* ── VULN CARDS ── */
+  .vuln-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .vuln-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .vuln-card:hover { border-color: var(--border2); }
+  .vuln-card.open { border-color: var(--border2); }
+  .vuln-card.sev-CRITICAL.open { border-color: rgba(255,59,92,0.4); }
+  .vuln-card.sev-HIGH.open { border-color: rgba(255,119,51,0.4); }
+  .vuln-card.sev-MEDIUM.open { border-color: rgba(245,197,24,0.4); }
+  .vuln-card.sev-LOW.open { border-color: rgba(57,211,83,0.4); }
+
+  .vuln-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sev-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-CRITICAL { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .dot-HIGH { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+  .dot-MEDIUM { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .dot-LOW { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  .vuln-id { font-family: var(--mono); font-size: 10px; color: var(--text3); min-width: 60px; }
+
+  .sev-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  .tag-CRITICAL { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,59,92,0.3); }
+  .tag-HIGH { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,119,51,0.3); }
+  .tag-MEDIUM { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,197,24,0.3); }
+  .tag-LOW { background: var(--green-dim); color: var(--green); border: 1px solid rgba(57,211,83,0.3); }
+
+  .vuln-title-text { font-size: 14px; font-weight: 600; flex: 1; }
+  .vuln-line { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+  .cvss-score {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 28px;
+    text-align: right;
+  }
+  .cvss-c { color: var(--red); }
+  .cvss-h { color: var(--orange); }
+  .cvss-m { color: var(--yellow); }
+  .cvss-l { color: var(--green); }
+
+  .chevron-icon {
+    color: var(--text3);
+    font-size: 10px;
+    transition: transform 0.25s;
+    flex-shrink: 0;
+  }
+  .open .chevron-icon { transform: rotate(180deg); }
+
+  .vuln-body {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .open .vuln-body { display: block; }
+
+  .vuln-body-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .detail-lbl { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .detail-val { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .detail-val code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }
+  .full { grid-column: 1 / -1; }
+
+  .attack-box {
+    margin-top: 14px;
+    background: var(--red-dim);
+    border: 1px solid rgba(255,59,92,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .attack-lbl { font-family: var(--mono); font-size: 10px; color: var(--red); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .attack-lbl::before { content: '⚡'; font-size: 11px; }
+  .attack-code { font-family: var(--mono); font-size: 11px; color: var(--text); line-height: 1.6; word-break: break-all; }
+
+  .fix-box {
+    margin-top: 10px;
+    background: var(--green-dim);
+    border: 1px solid rgba(57,211,83,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .fix-lbl { font-family: var(--mono); font-size: 10px; color: var(--green); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .fix-lbl::before { content: '✓'; font-size: 11px; }
+  .fix-code { font-family: var(--mono); font-size: 11px; color: var(--text); line-height: 1.7; white-space: pre-wrap; }
+
+  /* ── OWASP TAB ── */
+  .owasp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .owasp-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .owasp-rank {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .rank-crit { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,59,92,0.3); }
+  .rank-high { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,119,51,0.3); }
+  .rank-med { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,197,24,0.3); }
+  .owasp-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .owasp-vulns { font-family: var(--mono); font-size: 10px; color: var(--text2); line-height: 1.5; }
+
+  /* ── RISK BARS ── */
+  .risk-section { margin-top: 8px; }
+  .risk-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .risk-lbl { font-family: var(--mono); font-size: 11px; color: var(--text2); min-width: 72px; }
+  .risk-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .risk-fill { height: 100%; border-radius: 4px; width: 0; transition: width 1.2s cubic-bezier(0.16,1,0.3,1); }
+  .rf-c { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+  .rf-h { background: var(--orange); }
+  .rf-m { background: var(--yellow); }
+  .rf-l { background: var(--green); }
+  .risk-count { font-family: var(--mono); font-size: 12px; font-weight: 700; min-width: 20px; text-align: right; }
+
+  /* ── RADAR CHART ── */
+  .radar-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 24px 0;
+  }
+
+  /* ── REMEDIATION TAB ── */
+  .phase-block { margin-bottom: 28px; }
+  .phase-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .phase-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .pt-red { color: var(--red); }
+  .pt-orange { color: var(--orange); }
+  .pt-yellow { color: var(--yellow); }
+
+  .check-list { display: flex; flex-direction: column; gap: 6px; }
+  .check-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+  .check-item:hover { border-color: var(--border2); }
+  .check-item.done { opacity: 0.45; }
+  .check-item.done .check-circle { background: var(--green); border-color: var(--green); color: #000; }
+  .check-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    margin-top: 1px;
+    transition: all 0.2s;
+  }
+  .check-text strong { color: var(--text); }
+  .check-text code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }
+  .check-text { color: var(--text2); }
+
+  /* ── TOOLS USED SECTION ── */
+  .tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .tool-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .tool-name { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-bottom: 4px; }
+  .tool-desc { font-size: 11px; color: var(--text2); line-height: 1.4; }
+
+  /* ── STICKY PROGRESS BAR ── */
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--red), var(--orange), var(--cyan));
+    z-index: 10000;
+    transition: width 0.1s;
+    width: 0%;
+  }
+
+  /* ── SEARCH BOX ── */
+  .search-wrap { position: relative; margin-bottom: 14px; }
+  .search-input {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px 9px 38px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input::placeholder { color: var(--text3); }
+  .search-input:focus { border-color: var(--border2); }
+  .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 13px; pointer-events: none; }
+
+  /* ── STAT LINE ── */
+  .stat-line {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-line span { color: var(--text2); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fade-up 0.5s ease both; }
+  .d1s { animation-delay: 0.1s; }
+  .d2s { animation-delay: 0.2s; }
+  .d3s { animation-delay: 0.3s; }
+  .d4s { animation-delay: 0.4s; }
+  .d5s { animation-delay: 0.5s; }
+
+  @media (max-width: 700px) {
+    .hero { grid-template-columns: 1fr; }
+    .metrics-strip { grid-template-columns: repeat(3,1fr); }
+    .vuln-body-grid { grid-template-columns: 1fr; }
+    .owasp-grid { grid-template-columns: 1fr; }
+    .tools-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="grid-bg"></div>
+<div class="orb orb-red"></div>
+<div class="orb orb-cyan"></div>
+
+<div class="wrapper">
+
+  <!-- Terminal Bar -->
+  <div class="terminal-bar">
+    <span class="terminal-dot d1"></span>
+    <span class="terminal-dot d2"></span>
+    <span class="terminal-dot d3"></span>
+    <span class="terminal-path">~/audits/vulnerablebank $ python bandit_scan.py --level=all app.py</span>
+    <span class="terminal-cursor"></span>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero fade-up">
+    <div>
+      <div class="hero-eyebrow">Security Audit Report · 2026-03-30</div>
+      <h1 class="hero-title">VulnerableBank<br>Code Analysis</h1>
+      <p class="hero-sub">
+        Language: <span>Python 3 · Flask</span> &nbsp;·&nbsp;
+        Method: <span>Static Analysis + Manual Inspection</span><br>
+        Scope: <span>app.py (270 LOC)</span> &nbsp;·&nbsp;
+        Tools: <span>Bandit · AST · Pattern Analysis</span>
+      </p>
+    </div>
+    <div class="risk-badge fade-up d2s">
+      <span class="risk-badge-label">Risk</span>
+      <span class="risk-badge-score">9.8</span>
+      <span class="risk-badge-sub">CVSS Max</span>
+    </div>
+  </div>
+
+  <!-- Metrics Strip -->
+  <div class="metrics-strip fade-up d3s">
+    <div class="metric m-critical">
+      <div class="metric-num c" data-target="5">0</div>
+      <div class="metric-label">Critical</div>
+    </div>
+    <div class="metric m-high">
+      <div class="metric-num h" data-target="7">0</div>
+      <div class="metric-label">High</div>
+    </div>
+    <div class="metric m-medium">
+      <div class="metric-num m" data-target="5">0</div>
+      <div class="metric-label">Medium</div>
+    </div>
+    <div class="metric m-low">
+      <div class="metric-num l" data-target="2">0</div>
+      <div class="metric-label">Low</div>
+    </div>
+    <div class="metric m-total">
+      <div class="metric-num t" data-target="19">0</div>
+      <div class="metric-label">Total</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-row fade-up d4s">
+    <button class="tab-btn active" onclick="switchTab('findings', this)">01 · Findings</button>
+    <button class="tab-btn" onclick="switchTab('owasp', this)">02 · OWASP Map</button>
+    <button class="tab-btn" onclick="switchTab('remediation', this)">03 · Remediation</button>
+    <button class="tab-btn" onclick="switchTab('tools', this)">04 · Methodology</button>
+  </div>
+
+  <!-- TAB: FINDINGS -->
+  <div class="tab-pane active" id="tab-findings">
+    <div class="filter-row">
+      <span class="filter-label">Filter:</span>
+      <button class="filter-pill active-all" onclick="filterVulns('all', this)">All (19)</button>
+      <button class="filter-pill" onclick="filterVulns('CRITICAL', this)">Critical (5)</button>
+      <button class="filter-pill" onclick="filterVulns('HIGH', this)">High (7)</button>
+      <button class="filter-pill" onclick="filterVulns('MEDIUM', this)">Medium (5)</button>
+      <button class="filter-pill" onclick="filterVulns('LOW', this)">Low (2)</button>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" type="text" placeholder="Search vulnerabilities, CWE, description..." id="searchInput" oninput="doSearch(this.value)">
+    </div>
+    <div class="stat-line" id="statLine">Showing <span id="statCount">19</span> of 19 vulnerabilities</div>
+    <div class="vuln-list" id="vulnList"></div>
+  </div>
+
+  <!-- TAB: OWASP -->
+  <div class="tab-pane" id="tab-owasp">
+    <div class="sec-head">
+      <span class="sec-head-num">§</span>
+      <span class="sec-head-title">OWASP Top 10 Mapping</span>
+      <span class="sec-head-line"></span>
+    </div>
+
+    <!-- Radar -->
+    <div class="radar-wrap">
+      <canvas id="radarChart" width="380" height="280"></canvas>
+    </div>
+
+    <div class="owasp-grid">
+      <div class="owasp-card">
+        <span class="owasp-rank rank-crit">A01</span>
+        <div>
+          <div class="owasp-name">Broken Access Control</div>
+          <div class="owasp-vulns">IDOR, no authz checks<br>→ VULN-12, VULN-13</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-crit">A02</span>
+        <div>
+          <div class="owasp-name">Cryptographic Failures</div>
+          <div class="owasp-vulns">MD5 passwords, hardcoded secrets<br>→ VULN-01, VULN-04</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-crit">A03</span>
+        <div>
+          <div class="owasp-name">Injection</div>
+          <div class="owasp-vulns">SQLi, Command, SSTI, XXE<br>→ VULN-06, 07, 09, 11</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-high">A04</span>
+        <div>
+          <div class="owasp-name">Insecure Design</div>
+          <div class="owasp-vulns">No rate limiting, mass assignment<br>→ VULN-15, VULN-13</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-high">A05</span>
+        <div>
+          <div class="owasp-name">Security Misconfiguration</div>
+          <div class="owasp-vulns">Debug mode, CORS *, missing headers<br>→ VULN-02, VULN-17, VULN-18</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-high">A06</span>
+        <div>
+          <div class="owasp-name">Vulnerable Components</div>
+          <div class="owasp-vulns">Unsafe yaml.load, pickle.loads<br>→ VULN-08, VULN-14</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-high">A07</span>
+        <div>
+          <div class="owasp-name">Auth & Session Failures</div>
+          <div class="owasp-vulns">JWT none algorithm, MD5 hashing<br>→ VULN-04, VULN-05</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-med">A09</span>
+        <div>
+          <div class="owasp-name">Logging & Monitoring Failures</div>
+          <div class="owasp-vulns">Credentials in logs, verbose errors<br>→ VULN-03, VULN-16</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-med">A10</span>
+        <div>
+          <div class="owasp-name">SSRF / Path Traversal</div>
+          <div class="owasp-vulns">Unvalidated file paths<br>→ VULN-10</div>
+        </div>
+      </div>
+      <div class="owasp-card">
+        <span class="owasp-rank rank-crit">RCE</span>
+        <div>
+          <div class="owasp-name">Remote Code Execution</div>
+          <div class="owasp-vulns">YAML arbitrary code execution<br>→ VULN-14</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-head" style="margin-top:32px">
+      <span class="sec-head-num">§</span>
+      <span class="sec-head-title">Risk Distribution</span>
+      <span class="sec-head-line"></span>
+    </div>
+    <div class="risk-section">
+      <div class="risk-row">
+        <span class="risk-lbl">Critical</span>
+        <div class="risk-track"><div class="risk-fill rf-c" data-width="26"></div></div>
+        <span class="risk-count" style="color:var(--red)">5</span>
+      </div>
+      <div class="risk-row">
+        <span class="risk-lbl">High</span>
+        <div class="risk-track"><div class="risk-fill rf-h" data-width="37"></div></div>
+        <span class="risk-count" style="color:var(--orange)">7</span>
+      </div>
+      <div class="risk-row">
+        <span class="risk-lbl">Medium</span>
+        <div class="risk-track"><div class="risk-fill rf-m" data-width="26"></div></div>
+        <span class="risk-count" style="color:var(--yellow)">5</span>
+      </div>
+      <div class="risk-row">
+        <span class="risk-lbl">Low</span>
+        <div class="risk-track"><div class="risk-fill rf-l" data-width="11"></div></div>
+        <span class="risk-count" style="color:var(--green)">2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: REMEDIATION -->
+  <div class="tab-pane" id="tab-remediation">
+    <div class="phase-block">
+      <div class="phase-title pt-red">🔴 &nbsp;Immediate — 0 to 48 hrs</div>
+      <div class="check-list">
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Disable debug mode</strong> — set <code>DEBUG=False</code>, load all secrets from environment variables, never hardcode credentials in source.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Patch SQL injection</strong> — replace every f-string query with parameterized <code>cursor.execute(query, (params,))</code> across /login, /transfer, and /update_profile.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Remove pickle &amp; yaml.load</strong> — use <code>json.loads()</code> for session data; replace <code>yaml.load()</code> with <code>yaml.safe_load()</code>.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Fix command injection</strong> — pass arguments as a list to subprocess, never use <code>shell=True</code> with any user-supplied data.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Fix JWT algorithm confusion</strong> — restrict to <code>algorithms=["HS256"]</code> only; the "none" algorithm must be explicitly rejected.</div></div>
+      </div>
+    </div>
+
+    <div class="phase-block">
+      <div class="phase-title pt-orange">🟠 &nbsp;Short-term — 1 to 2 weeks</div>
+      <div class="check-list">
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Replace MD5 hashing</strong> — migrate to <code>bcrypt</code> or <code>argon2</code> with salting. Hash all stored passwords on next login.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Add authorization checks</strong> — verify <code>request.user['id'] == user_id</code> or admin role before returning any account data. Never expose SSN/card to non-owners.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Implement rate limiting</strong> — apply <code>flask-limiter</code> on <code>/login</code> (5/min) and <code>/transfer</code> (10/min) at minimum.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Fix path traversal</strong> — use <code>os.path.abspath()</code> + <code>os.path.commonpath()</code> to validate all resolved paths stay within the allowed base directory.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Fix SSTI</strong> — replace <code>render_template_string(f-string)</code> with <code>render_template('profile.html', username=username)</code> using Jinja2's auto-escaping.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Replace xml.etree with defusedxml</strong> — drop-in replacement that disables external entity resolution and prevents XXE attacks.</div></div>
+      </div>
+    </div>
+
+    <div class="phase-block">
+      <div class="phase-title" style="color:var(--yellow)">🟡 &nbsp;Long-term — 2 to 4 weeks</div>
+      <div class="check-list">
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Add security headers</strong> — CSP, X-Frame-Options, HSTS, X-Content-Type-Options via <code>flask-talisman</code>.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Restrict CORS policy</strong> — never use <code>*</code> for authenticated APIs; maintain an explicit allowlist of trusted origins.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Redact sensitive logs</strong> — never log passwords, tokens, or PII; use structured logging with field masking for credentials.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Input validation schemas</strong> — add Pydantic or Marshmallow schemas for all request bodies; enforce strict field allowlists to prevent mass assignment.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Integrate CI scanning</strong> — add Bandit + Semgrep to GitHub Actions; block PRs on CRITICAL/HIGH severity findings automatically.</div></div>
+        <div class="check-item" onclick="toggleCheck(this)"><div class="check-circle">✓</div><div class="check-text"><strong>Secret management</strong> — migrate all secrets to HashiCorp Vault, AWS Secrets Manager, or at minimum <code>python-dotenv</code> + <code>.env</code> excluded from git.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: METHODOLOGY -->
+  <div class="tab-pane" id="tab-tools">
+    <div class="sec-head">
+      <span class="sec-head-num">§</span>
+      <span class="sec-head-title">Audit Methodology</span>
+      <span class="sec-head-line"></span>
+    </div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:24px;">
+      This audit combined automated static analysis with manual code inspection using AST traversal and pattern matching. The following tools and techniques were employed:
+    </p>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <div class="tool-name">Bandit</div>
+        <div class="tool-desc">Python SAST scanner. Detects common security issues: B105 hardcoded passwords, B301 pickle, B324 MD5, B506 yaml, B602 subprocess shell, B608 SQLi.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">AST Inspection</div>
+        <div class="tool-desc">Python Abstract Syntax Tree traversal to detect f-string injection in SQL queries, render_template_string misuse, and JWT algorithm confusion.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">Pattern Analysis</div>
+        <div class="tool-desc">Regex and dataflow tracing to identify missing rate limiting, CORS wildcards, absent security headers, and sensitive data in HTTP responses.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">Manual Inspection</div>
+        <div class="tool-desc">Line-by-line code review focused on authorization logic, input validation, deserialization entry points, and business logic flaws like negative transfers.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">OWASP Reference</div>
+        <div class="tool-desc">All findings mapped to OWASP Top 10 (2021) and CWE identifiers. CVSS v3.1 base scores calculated for each vulnerability independently.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">Threat Modeling</div>
+        <div class="tool-desc">Attack vectors constructed and verified for each finding, ensuring exploitability is confirmed before severity classification is assigned.</div>
+      </div>
+    </div>
+
+    <div class="sec-head" style="margin-top:32px">
+      <span class="sec-head-num">§</span>
+      <span class="sec-head-title">Secure Coding Best Practices</span>
+      <span class="sec-head-line"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div class="tool-card"><div class="tool-name" style="color:var(--green)">✓ Always use parameterized queries</div><div class="tool-desc">Never concatenate user data into SQL strings. Use <code style="font-family:var(--mono);font-size:10px;background:var(--bg3);padding:1px 4px;border-radius:3px;color:var(--cyan)">?</code> placeholders for all inputs.</div></div>
+      <div class="tool-card"><div class="tool-name" style="color:var(--green)">✓ Never deserialize untrusted data</div><div class="tool-desc">Avoid pickle, YAML unsafe-load, and Java's ObjectInputStream on any user-controlled input.</div></div>
+      <div class="tool-card"><div class="tool-name" style="color:var(--green)">✓ Use secrets from environment</div><div class="tool-desc">All secret keys, passwords, and tokens must be loaded at runtime from environment variables or a secrets manager.</div></div>
+      <div class="tool-card"><div class="tool-name" style="color:var(--green)">✓ Validate &amp; sanitize all input</div><div class="tool-desc">Use strict schemas with type enforcement. Reject requests that contain unexpected fields or values outside allowed ranges.</div></div>
+      <div class="tool-card"><div class="tool-name" style="color:var(--green)">✓ Principle of least privilege</div><div class="tool-desc">Each user and service account should only access resources explicitly authorized for their role. Check on every request.</div></div>
+      <div class="tool-card"><div class="tool-name" style="color:var(--green)">✓ Deploy with security headers</div><div class="tool-desc">CSP, HSTS, X-Frame-Options, and X-Content-Type-Options are non-optional for any web application serving browsers.</div></div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+const vulns = [
+  { id:"VULN-06", sev:"CRITICAL", title:"SQL Injection", line:"L93, L200, L233", cwe:"CWE-89", cvss:"9.8", tool:"Bandit B608 + AST", desc:"User input concatenated directly into SQL strings via f-strings. Allows authentication bypass, data exfiltration, and full database compromise.", attack:"POST /login with username: admin'--", fix:"c.execute('SELECT * FROM users WHERE username=? AND password=?', (username, hashed))" },
+  { id:"VULN-09", sev:"CRITICAL", title:"Command Injection", line:"L135", cwe:"CWE-78", cvss:"9.8", tool:"Bandit B602 + AST", desc:"subprocess.run() called with shell=True and unsanitized user input. Allows arbitrary OS command execution on the server.", attack:"GET /ping?host=8.8.8.8;cat /etc/passwd", fix:"subprocess.run(['ping', '-c', '1', host], capture_output=True)" },
+  { id:"VULN-08", sev:"CRITICAL", title:"Insecure Deserialization (RCE)", line:"L124", cwe:"CWE-502", cvss:"9.8", tool:"Bandit B301 + AST", desc:"pickle.loads() called on raw user-supplied HTTP body. An attacker can craft a payload that executes arbitrary Python code on deserialization.", attack:"POST /restore_session with crafted pickle payload", fix:"Use json.loads() for session data. Never deserialize untrusted binary data." },
+  { id:"VULN-14", sev:"CRITICAL", title:"YAML Remote Code Execution", line:"L211", cwe:"CWE-20", cvss:"9.1", tool:"Bandit B506 + AST", desc:"yaml.load() without a safe Loader can instantiate arbitrary Python objects, leading to remote code execution via crafted YAML payloads.", attack:"POST /load_config with: !!python/object/apply:os.system ['id']", fix:"config = yaml.safe_load(config_data)" },
+  { id:"VULN-07", sev:"CRITICAL", title:"Server-Side Template Injection", line:"L116", cwe:"CWE-94", cvss:"9.0", tool:"AST inspection", desc:"render_template_string() receives an f-string built from request.user['username']. Allows SSTI leading to RCE if username contains Jinja2 expressions.", attack:"Login with username: {{config.items()}} or {{''.__class__.__mro__}}", fix:"Use render_template('profile.html', username=username) with auto-escaping." },
+  { id:"VULN-12", sev:"HIGH", title:"Insecure Direct Object Reference", line:"L173", cwe:"CWE-639", cvss:"8.1", tool:"Manual inspection", desc:"Any authenticated user can access any account by changing the user_id path parameter. No authorization check verifies ownership. SSN and credit cards are also returned.", attack:"GET /account/1 as user alice — returns admin's SSN + card", fix:"if user_id != request.user['id'] and request.user['role'] != 'admin': return 403" },
+  { id:"VULN-13", sev:"HIGH", title:"Mass Assignment", line:"L200", cwe:"CWE-915", cvss:"8.0", tool:"Manual inspection", desc:"All JSON keys from request body are iterated and used in UPDATE query column names, allowing attackers to set role='admin' or inflate their own balance.", attack:"POST /update_profile {\"role\": \"admin\", \"balance\": 9999999}", fix:"ALLOWED = {'email', 'display_name'}; data = {k:v for k,v in data.items() if k in ALLOWED}" },
+  { id:"VULN-05", sev:"HIGH", title:"JWT Algorithm Confusion", line:"L67", cwe:"CWE-327", cvss:"7.8", tool:"Manual inspection", desc:"jwt.decode() accepts both HS256 and none algorithms. An attacker can forge a token signed with 'none' — no secret required — and gain arbitrary identity.", attack:"Modify JWT header to {\"alg\":\"none\"}, strip signature, use forged identity", fix:"jwt.decode(token, JWT_SECRET, algorithms=['HS256'])" },
+  { id:"VULN-11", sev:"HIGH", title:"XML External Entity (XXE)", line:"L159", cwe:"CWE-611", cvss:"7.5", tool:"Bandit B314 + B405", desc:"xml.etree.ElementTree parses XML without disabling external entity resolution, enabling SSRF and local file disclosure via crafted XML payloads.", attack:"POST /import_transactions with <!ENTITY xxe SYSTEM 'file:///etc/passwd'>", fix:"import defusedxml.ElementTree as ET — identical API, safe by default." },
+  { id:"VULN-10", sev:"HIGH", title:"Path Traversal", line:"L142", cwe:"CWE-22", cvss:"7.5", tool:"Manual inspection", desc:"User-supplied filename is appended to base path without sanitization. Allows reading arbitrary files accessible to the application process.", attack:"GET /download?file=../../etc/shadow", fix:"safe = os.path.abspath(base_path + filename)\nif not safe.startswith(base_path): return 403" },
+  { id:"VULN-04", sev:"HIGH", title:"Weak Password Hashing (MD5)", line:"L55, L88", cwe:"CWE-327", cvss:"7.4", tool:"Bandit B324", desc:"Passwords are hashed with MD5 without salt. MD5 is cryptographically broken; full rainbow tables exist and modern GPUs crack millions of hashes/second.", attack:"Extract hash from leaked DB → crack via hashcat in minutes", fix:"import bcrypt\nbcrypt.hashpw(password.encode(), bcrypt.gensalt())" },
+  { id:"VULN-15", sev:"HIGH", title:"Missing Rate Limiting + Negative Transfers", line:"L215", cwe:"CWE-770", cvss:"7.2", tool:"Pattern analysis", desc:"The /transfer endpoint has no rate limiting (allows brute force) and no amount validation — negative values can be used to steal balance from other users.", attack:"POST /transfer {\"to_user\":\"attacker\",\"amount\":-500} to drain victim", fix:"Use flask-limiter. Validate amount > 0 and amount <= sender.balance." },
+  { id:"VULN-02", sev:"HIGH", title:"Debug Mode Enabled", line:"L270", cwe:"CWE-94", cvss:"7.0", tool:"Bandit B201", desc:"Flask debug=True enables the Werkzeug interactive debugger, which allows execution of arbitrary Python in the browser if an exception occurs.", attack:"Trigger any exception → browser shows interactive Python REPL", fix:"app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true')" },
+  { id:"VULN-17", sev:"MEDIUM", title:"Wildcard CORS Policy", line:"L255", cwe:"CWE-942", cvss:"6.5", tool:"Pattern analysis", desc:"Access-Control-Allow-Origin: * on an authenticated API allows any web origin to make credentialed cross-origin requests, enabling CSRF-like attacks.", attack:"Malicious site reads /account responses via fetch() with credentials", fix:"ALLOWED_ORIGINS = ['https://app.bank.com']\nif origin in ALLOWED_ORIGINS: response.headers['ACAO'] = origin" },
+  { id:"VULN-18", sev:"MEDIUM", title:"Missing Security Headers", line:"L255", cwe:"CWE-693", cvss:"6.1", tool:"Pattern analysis", desc:"No Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, or HSTS headers. Enables XSS escalation, clickjacking, MIME sniffing, and downgrade attacks.", attack:"iframe embedding for clickjacking; MIME confusion leading to script execution", fix:"Use flask-talisman: Talisman(app, csp={'default-src': \"'self'\"})" },
+  { id:"VULN-01", sev:"MEDIUM", title:"Hardcoded Secrets", line:"L21, L22", cwe:"CWE-259", cvss:"5.9", tool:"Bandit B105", desc:"Flask secret key and JWT secret are hardcoded strings. Anyone with source access (e.g. leaked repo) can forge sessions and JWT tokens.", attack:"Clone repo → extract secrets → forge admin JWT", fix:"app.secret_key = os.environ['FLASK_SECRET_KEY']" },
+  { id:"VULN-16", sev:"MEDIUM", title:"Verbose Error Disclosure", line:"L248", cwe:"CWE-209", cvss:"5.3", tool:"Manual inspection", desc:"Global exception handler returns full Python stack trace including file paths, variable names, and library versions to the client.", attack:"Trigger any error → leak internal code structure and environment info", fix:"Log internally, return only: {'error': 'Internal server error'}" },
+  { id:"VULN-03", sev:"LOW", title:"Credentials Logged in Plaintext", line:"L83", cwe:"CWE-532", cvss:"4.0", tool:"Pattern analysis", desc:"Login handler logs username and plaintext password at INFO level. Any log aggregation system will store user credentials in plaintext.", attack:"Compromise log server → harvest all user passwords", fix:"logger.info(f'Login attempt for user: {username}')  # never log password" },
+  { id:"VULN-19", sev:"LOW", title:"Server Bound to All Interfaces", line:"L270", cwe:"CWE-605", cvss:"3.7", tool:"Bandit B104", desc:"app.run(host='0.0.0.0') exposes the Flask dev server on all network interfaces, including public ones. Combined with debug=True, this is especially dangerous.", attack:"Reach app from any network interface; dev server has no production hardening", fix:"app.run(host='127.0.0.1') in dev; use gunicorn/uwsgi behind nginx in prod." },
+];
+
+let currentFilter = 'all';
+let currentSearch = '';
+
+function cvssClass(sev) {
+  return {CRITICAL:'cvss-c', HIGH:'cvss-h', MEDIUM:'cvss-m', LOW:'cvss-l'}[sev] || '';
+}
+
+function renderVulns() {
+  const list = document.getElementById('vulnList');
+  let data = vulns;
+  if (currentFilter !== 'all') data = data.filter(v => v.sev === currentFilter);
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    data = data.filter(v =>
+      v.title.toLowerCase().includes(q) ||
+      v.id.toLowerCase().includes(q) ||
+      v.cwe.toLowerCase().includes(q) ||
+      v.desc.toLowerCase().includes(q) ||
+      v.sev.toLowerCase().includes(q)
+    );
+  }
+  document.getElementById('statCount').textContent = data.length;
+  list.innerHTML = '';
+  data.forEach((v, i) => {
+    const div = document.createElement('div');
+    div.className = `vuln-card sev-${v.sev}`;
+    div.style.animationDelay = `${i * 0.03}s`;
+    div.innerHTML = `
+      <div class="vuln-head" onclick="toggleCard(this.closest('.vuln-card'))">
+        <span class="sev-dot dot-${v.sev}"></span>
+        <span class="vuln-id">${v.id}</span>
+        <span class="sev-tag tag-${v.sev}">${v.sev}</span>
+        <span class="vuln-title-text">${v.title}</span>
+        <span class="vuln-line">${v.line}</span>
+        <span class="cvss-score ${cvssClass(v.sev)}">${v.cvss}</span>
+        <span class="chevron-icon">▾</span>
+      </div>
+      <div class="vuln-body">
+        <div class="vuln-body-grid">
+          <div><div class="detail-lbl">CWE</div><div class="detail-val"><code>${v.cwe}</code></div></div>
+          <div><div class="detail-lbl">CVSS Score</div><div class="detail-val"><code>${v.cvss} / 10</code></div></div>
+          <div><div class="detail-lbl">Detection Method</div><div class="detail-val"><code>${v.tool}</code></div></div>
+          <div><div class="detail-lbl">Affected Line(s)</div><div class="detail-val"><code>${v.line}</code></div></div>
+          <div class="full"><div class="detail-lbl">Description</div><div class="detail-val">${v.desc}</div></div>
+        </div>
+        <div class="attack-box">
+          <div class="attack-lbl">Attack Vector</div>
+          <div class="attack-code">${v.attack}</div>
+        </div>
+        <div class="fix-box">
+          <div class="fix-lbl">Recommended Fix</div>
+          <div class="fix-code">${v.fix}</div>
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function toggleCard(card) {
+  card.classList.toggle('open');
+}
+
+function filterVulns(sev, btn) {
+  currentFilter = sev;
+  document.querySelectorAll('.filter-pill').forEach(b => {
+    b.className = 'filter-pill';
+  });
+  btn.classList.add('active-' + sev.toLowerCase());
+  renderVulns();
+}
+
+function doSearch(val) {
+  currentSearch = val;
+  renderVulns();
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'owasp') {
+    setTimeout(animateBars, 100);
+    setTimeout(drawRadar, 150);
+  }
+}
+
+function toggleCheck(el) {
+  el.classList.toggle('done');
+}
+
+// ── COUNT-UP ANIMATION ──
+function countUp() {
+  document.querySelectorAll('[data-target]').forEach(el => {
+    const target = +el.dataset.target;
+    let cur = 0;
+    const step = Math.ceil(target / 20);
+    const timer = setInterval(() => {
+      cur = Math.min(cur + step, target);
+      el.textContent = cur;
+      if (cur >= target) clearInterval(timer);
+    }, 40);
+  });
+}
+
+// ── BAR ANIMATION ──
+function animateBars() {
+  document.querySelectorAll('.risk-fill').forEach(el => {
+    el.style.width = el.dataset.width + '%';
+  });
+}
+
+// ── SCROLL PROGRESS ──
+window.addEventListener('scroll', () => {
+  const scrolled = window.scrollY;
+  const total = document.documentElement.scrollHeight - window.innerHeight;
+  document.getElementById('progressBar').style.width = (scrolled / total * 100) + '%';
+});
+
+// ── RADAR CHART ──
+function drawRadar() {
+  const canvas = document.getElementById('radarChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const r = 100;
+
+  const labels = ['Injection', 'Auth', 'Access\nControl', 'Crypto', 'Misconfig', 'Logging'];
+  const scores = [0.95, 0.82, 0.80, 0.74, 0.72, 0.55];
+  const n = labels.length;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grid circles
+  [0.25, 0.5, 0.75, 1].forEach(pct => {
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const x = cx + r * pct * Math.cos(angle);
+      const y = cy + r * pct * Math.sin(angle);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(30,45,61,0.8)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Axes
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    ctx.strokeStyle = 'rgba(30,45,61,0.6)';
+    ctx.stroke();
+  }
+
+  // Data polygon
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const x = cx + r * scores[i] * Math.cos(angle);
+    const y = cy + r * scores[i] * Math.sin(angle);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,59,92,0.12)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,59,92,0.7)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Dots
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const x = cx + r * scores[i] * Math.cos(angle);
+    const y = cy + r * scores[i] * Math.sin(angle);
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff3b5c';
+    ctx.fill();
+  }
+
+  // Labels
+  ctx.font = '10px "Space Mono", monospace';
+  ctx.fillStyle = '#7a9bb5';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const lx = cx + (r + 22) * Math.cos(angle);
+    const ly = cy + (r + 22) * Math.sin(angle);
+    const lines = labels[i].split('\n');
+    lines.forEach((line, li) => {
+      ctx.fillText(line, lx, ly + li * 13 - ((lines.length - 1) * 6));
+    });
+  }
+}
+
+// ── INIT ──
+renderVulns();
+countUp();
+</script>
+</body>
+</html>

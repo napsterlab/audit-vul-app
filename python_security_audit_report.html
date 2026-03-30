@@ -1,0 +1,250 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+
+.header { padding: 20px 0 16px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 20px; }
+.header-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+.badge-critical { background: var(--color-background-danger); color: var(--color-text-danger); }
+.badge-high { background: #FAECE7; color: #993C1D; }
+.badge-medium { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-low { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-info { background: var(--color-background-info); color: var(--color-text-info); }
+
+.metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+.metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px; text-align: center; }
+.metric-num { font-size: 22px; font-weight: 500; margin-bottom: 2px; }
+.metric-label { font-size: 11px; color: var(--color-text-secondary); }
+.num-critical { color: var(--color-text-danger); }
+.num-high { color: #993C1D; }
+.num-medium { color: var(--color-text-warning); }
+.num-low { color: var(--color-text-success); }
+.num-total { color: var(--color-text-primary); }
+
+.section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; margin-top: 20px; }
+
+.vuln-list { display: flex; flex-direction: column; gap: 8px; }
+.vuln-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
+.vuln-card:hover { border-color: var(--color-border-secondary); }
+.vuln-card.expanded { border-color: var(--color-border-primary); }
+.vuln-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.vuln-id { font-size: 11px; font-family: var(--font-mono); color: var(--color-text-tertiary); min-width: 55px; }
+.vuln-title { font-size: 13px; font-weight: 500; flex: 1; }
+.vuln-line { font-size: 11px; font-family: var(--font-mono); color: var(--color-text-secondary); }
+.chevron { font-size: 10px; color: var(--color-text-tertiary); transition: transform 0.2s; }
+.expanded .chevron { transform: rotate(180deg); }
+
+.vuln-body { display: none; padding: 0 14px 14px; border-top: 0.5px solid var(--color-border-tertiary); }
+.expanded .vuln-body { display: block; }
+.vuln-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.detail-block { font-size: 12px; }
+.detail-label { color: var(--color-text-tertiary); font-size: 11px; margin-bottom: 4px; }
+.detail-val { color: var(--color-text-primary); line-height: 1.5; }
+code { font-family: var(--font-mono); font-size: 11px; background: var(--color-background-secondary); padding: 1px 5px; border-radius: 4px; }
+.fix-box { margin-top: 10px; background: var(--color-background-success); border: 0.5px solid var(--color-border-success); border-radius: var(--border-radius-md); padding: 10px 12px; }
+.fix-title { font-size: 11px; font-weight: 500; color: var(--color-text-success); margin-bottom: 6px; }
+.fix-code { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-primary); white-space: pre-wrap; line-height: 1.6; }
+
+.attack-box { margin-top: 10px; background: var(--color-background-danger); border: 0.5px solid var(--color-border-danger); border-radius: var(--border-radius-md); padding: 10px 12px; }
+.attack-title { font-size: 11px; font-weight: 500; color: var(--color-text-danger); margin-bottom: 4px; }
+.attack-val { font-size: 12px; color: var(--color-text-primary); font-family: var(--font-mono); }
+
+.tabs { display: flex; gap: 2px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 3px; margin-bottom: 16px; }
+.tab { flex: 1; text-align: center; font-size: 12px; padding: 6px 8px; border-radius: 6px; cursor: pointer; color: var(--color-text-secondary); transition: all 0.15s; }
+.tab.active { background: var(--color-background-primary); color: var(--color-text-primary); font-weight: 500; border: 0.5px solid var(--color-border-tertiary); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.risk-bar-wrap { margin: 4px 0; }
+.risk-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.risk-label { font-size: 12px; min-width: 70px; color: var(--color-text-secondary); }
+.risk-bar-bg { flex: 1; height: 8px; background: var(--color-background-secondary); border-radius: 4px; overflow: hidden; }
+.risk-bar { height: 100%; border-radius: 4px; transition: width 1s ease; }
+.risk-count { font-size: 12px; font-weight: 500; min-width: 20px; text-align: right; }
+
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.filter-btn { font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-secondary); transition: all 0.15s; }
+.filter-btn.active { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; }
+
+.owasp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.owasp-card { padding: 10px 12px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); }
+.owasp-num { font-size: 11px; font-family: var(--font-mono); color: var(--color-text-tertiary); }
+.owasp-name { font-size: 12px; font-weight: 500; margin: 2px 0; }
+.owasp-sub { font-size: 11px; color: var(--color-text-secondary); }
+.border-danger { border-left: 3px solid var(--color-background-danger); }
+.border-high { border-left: 3px solid #D85A30; }
+.border-medium { border-left: 3px solid var(--color-background-warning); }
+
+.checklist { display: flex; flex-direction: column; gap: 6px; }
+.check-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: var(--border-radius-md); background: var(--color-background-secondary); font-size: 12px; }
+.check-icon { font-size: 13px; margin-top: 1px; }
+.check-text { color: var(--color-text-primary); line-height: 1.4; }
+
+</style>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div style="font-size:18px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px">Security Audit Report</div>
+      <div style="font-size:12px;color:var(--color-text-secondary)">VulnerableBank · Python Flask · Static analysis + manual inspection</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span class="badge badge-critical">CRITICAL RISK</span>
+      <span style="font-size:11px;color:var(--color-text-tertiary)">2026-03-30</span>
+    </div>
+  </div>
+</div>
+
+<div class="metrics">
+  <div class="metric-card"><div class="metric-num num-critical">5</div><div class="metric-label">Critical</div></div>
+  <div class="metric-card"><div class="metric-num num-high">7</div><div class="metric-label">High</div></div>
+  <div class="metric-card"><div class="metric-num num-medium">5</div><div class="metric-label">Medium</div></div>
+  <div class="metric-card"><div class="metric-num num-low">2</div><div class="metric-label">Low</div></div>
+  <div class="metric-card"><div class="metric-num num-total">19</div><div class="metric-label">Total</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('findings')">All Findings</div>
+  <div class="tab" onclick="switchTab('owasp')">OWASP Mapping</div>
+  <div class="tab" onclick="switchTab('remediation')">Remediation Plan</div>
+</div>
+
+<div id="tab-findings" class="tab-content active">
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterVulns('all', this)">All (19)</button>
+    <button class="filter-btn" onclick="filterVulns('CRITICAL', this)">Critical (5)</button>
+    <button class="filter-btn" onclick="filterVulns('HIGH', this)">High (7)</button>
+    <button class="filter-btn" onclick="filterVulns('MEDIUM', this)">Medium (5)</button>
+    <button class="filter-btn" onclick="filterVulns('LOW', this)">Low (2)</button>
+  </div>
+  <div class="vuln-list" id="vuln-list"></div>
+</div>
+
+<div id="tab-owasp" class="tab-content">
+  <div class="section-title">OWASP Top 10 Coverage</div>
+  <div class="owasp-grid">
+    <div class="owasp-card border-danger"><div class="owasp-num">A01:2021</div><div class="owasp-name">Broken Access Control</div><div class="owasp-sub">IDOR, no authz checks · VULN-12, 13</div></div>
+    <div class="owasp-card border-danger"><div class="owasp-num">A02:2021</div><div class="owasp-name">Cryptographic Failures</div><div class="owasp-sub">MD5 passwords, hardcoded secrets · VULN-01, 04</div></div>
+    <div class="owasp-card border-danger"><div class="owasp-num">A03:2021</div><div class="owasp-name">Injection</div><div class="owasp-sub">SQLi, Command, SSTI, XXE · VULN-06, 07, 09, 11</div></div>
+    <div class="owasp-card border-high"><div class="owasp-num">A04:2021</div><div class="owasp-name">Insecure Design</div><div class="owasp-sub">No rate limiting, mass assignment · VULN-15, 13</div></div>
+    <div class="owasp-card border-high"><div class="owasp-num">A05:2021</div><div class="owasp-name">Security Misconfiguration</div><div class="owasp-sub">Debug mode, CORS *, missing headers · VULN-02, 17, 18</div></div>
+    <div class="owasp-card border-high"><div class="owasp-num">A06:2021</div><div class="owasp-name">Vulnerable Components</div><div class="owasp-sub">Unsafe yaml.load, pickle · VULN-08, 14</div></div>
+    <div class="owasp-card border-high"><div class="owasp-num">A07:2021</div><div class="owasp-name">Auth Failures</div><div class="owasp-sub">JWT none algorithm, weak hashing · VULN-04, 05</div></div>
+    <div class="owasp-card border-medium"><div class="owasp-num">A09:2021</div><div class="owasp-name">Logging & Monitoring</div><div class="owasp-sub">Credentials in logs, verbose errors · VULN-03, 16</div></div>
+    <div class="owasp-card border-medium"><div class="owasp-num">A10:2021</div><div class="owasp-name">SSRF / Path Traversal</div><div class="owasp-sub">Unvalidated file paths · VULN-10</div></div>
+    <div class="owasp-card border-medium"><div class="owasp-num">Bonus</div><div class="owasp-name">Server-Side RCE via YAML</div><div class="owasp-sub">Arbitrary code execution · VULN-14</div></div>
+  </div>
+  <div class="section-title" style="margin-top:20px">Risk Distribution</div>
+  <div class="risk-bar-wrap">
+    <div class="risk-row"><span class="risk-label">Critical</span><div class="risk-bar-bg"><div class="risk-bar" style="width:26%;background:var(--color-background-danger)"></div></div><span class="risk-count num-critical">5</span></div>
+    <div class="risk-row"><span class="risk-label">High</span><div class="risk-bar-bg"><div class="risk-bar" style="width:37%;background:#D85A30"></div></div><span class="risk-count num-high">7</span></div>
+    <div class="risk-row"><span class="risk-label">Medium</span><div class="risk-bar-bg"><div class="risk-bar" style="width:26%;background:var(--color-background-warning)"></div></div><span class="risk-count num-medium">5</span></div>
+    <div class="risk-row"><span class="risk-label">Low</span><div class="risk-bar-bg"><div class="risk-bar" style="width:11%;background:var(--color-background-success)"></div></div><span class="risk-count num-low">2</span></div>
+  </div>
+</div>
+
+<div id="tab-remediation" class="tab-content">
+  <div class="section-title">Immediate Actions (0–48 hrs)</div>
+  <div class="checklist">
+    <div class="check-row"><span class="check-icon">🔴</span><span class="check-text"><strong>Disable debug mode</strong> — set <code>DEBUG=False</code>, load secrets from env vars, never hardcode credentials.</span></div>
+    <div class="check-row"><span class="check-icon">🔴</span><span class="check-text"><strong>Patch SQL injection</strong> — replace all f-string queries with parameterized <code>cursor.execute(query, (params,))</code>.</span></div>
+    <div class="check-row"><span class="check-icon">🔴</span><span class="check-text"><strong>Remove pickle/yaml.load</strong> — use <code>json</code> for session data, <code>yaml.safe_load()</code> for config files.</span></div>
+    <div class="check-row"><span class="check-icon">🔴</span><span class="check-text"><strong>Fix command injection</strong> — pass args as list, never use <code>shell=True</code> with user input.</span></div>
+    <div class="check-row"><span class="check-icon">🔴</span><span class="check-text"><strong>Fix JWT algorithm confusion</strong> — restrict to <code>algorithms=["HS256"]</code> only, reject <code>none</code>.</span></div>
+  </div>
+  <div class="section-title">Short-term (1–2 weeks)</div>
+  <div class="checklist">
+    <div class="check-row"><span class="check-icon">🟠</span><span class="check-text"><strong>Replace MD5</strong> with <code>bcrypt</code> or <code>argon2</code> for password hashing with salting.</span></div>
+    <div class="check-row"><span class="check-icon">🟠</span><span class="check-text"><strong>Add authorization checks</strong> — verify <code>request.user['id'] == user_id</code> before returning any account data.</span></div>
+    <div class="check-row"><span class="check-icon">🟠</span><span class="check-text"><strong>Implement rate limiting</strong> — use <code>flask-limiter</code> on <code>/login</code> and <code>/transfer</code> routes.</span></div>
+    <div class="check-row"><span class="check-icon">🟠</span><span class="check-text"><strong>Fix path traversal</strong> — use <code>os.path.abspath()</code> + <code>commonpath()</code> to validate file paths stay in allowed directory.</span></div>
+    <div class="check-row"><span class="check-icon">🟠</span><span class="check-text"><strong>Sanitize template input</strong> — use <code>render_template()</code> with static files instead of <code>render_template_string</code> with user data.</span></div>
+    <div class="check-row"><span class="check-icon">🟠</span><span class="check-text"><strong>Replace xml.etree with defusedxml</strong> — prevents XXE and billion laughs attacks.</span></div>
+  </div>
+  <div class="section-title">Long-term (2–4 weeks)</div>
+  <div class="checklist">
+    <div class="check-row"><span class="check-icon">🟡</span><span class="check-text"><strong>Add security headers</strong> — CSP, X-Frame-Options, HSTS, X-Content-Type-Options via <code>flask-talisman</code>.</span></div>
+    <div class="check-row"><span class="check-icon">🟡</span><span class="check-text"><strong>Fix CORS policy</strong> — restrict origin to known domains, never use <code>*</code> for authenticated APIs.</span></div>
+    <div class="check-row"><span class="check-icon">🟡</span><span class="check-text"><strong>Redact logs</strong> — never log passwords, tokens, or PII; use structured logging with field masking.</span></div>
+    <div class="check-row"><span class="check-icon">🟡</span><span class="check-text"><strong>Input validation</strong> — add Pydantic schemas or <code>marshmallow</code> for all request bodies; enforce field allowlists.</span></div>
+    <div class="check-row"><span class="check-icon">🟡</span><span class="check-text"><strong>Integrate CI scanning</strong> — add Bandit + Semgrep to GitHub Actions, block PRs on high-severity findings.</span></div>
+    <div class="check-row"><span class="check-icon">🟡</span><span class="check-text"><strong>Secret management</strong> — move all secrets to HashiCorp Vault, AWS Secrets Manager, or at minimum <code>.env</code> + <code>python-dotenv</code>.</span></div>
+  </div>
+</div>
+
+<script>
+const vulns = [
+  { id:"VULN-06", sev:"CRITICAL", title:"SQL Injection", line:"L93, L200, L233", cwe:"CWE-89", cvss:"9.8", tool:"Bandit B608 + AST", desc:"User input concatenated directly into SQL strings via f-strings. Allows authentication bypass, data exfiltration, and full database compromise.", attack:"POST /login with username: admin'--", fix:"c.execute('SELECT * FROM users WHERE username=? AND password=?', (username, hashed))" },
+  { id:"VULN-09", sev:"CRITICAL", title:"Command Injection", line:"L135", cwe:"CWE-78", cvss:"9.8", tool:"Bandit B602 + AST", desc:"subprocess.run() called with shell=True and unsanitized user input. Allows arbitrary OS command execution on the server.", attack:"GET /ping?host=8.8.8.8;cat /etc/passwd", fix:"subprocess.run(['ping', '-c', '1', host], capture_output=True)" },
+  { id:"VULN-08", sev:"CRITICAL", title:"Insecure Deserialization (RCE)", line:"L124", cwe:"CWE-502", cvss:"9.8", tool:"Bandit B301 + AST", desc:"pickle.loads() called on raw user-supplied HTTP body. An attacker can craft a payload that executes arbitrary Python code on deserialization.", attack:"POST /restore_session with crafted pickle payload", fix:"Use json.loads() for session data. Never deserialize untrusted binary data." },
+  { id:"VULN-14", sev:"CRITICAL", title:"YAML Remote Code Execution", line:"L211", cwe:"CWE-20", cvss:"9.1", tool:"Bandit B506 + AST", desc:"yaml.load() without a safe Loader can instantiate arbitrary Python objects, leading to remote code execution via crafted YAML payloads.", attack:"POST /load_config with: !!python/object/apply:os.system ['id']", fix:"config = yaml.safe_load(config_data)" },
+  { id:"VULN-07", sev:"CRITICAL", title:"Server-Side Template Injection", line:"L116", cwe:"CWE-94", cvss:"9.0", tool:"AST inspection", desc:"render_template_string() receives an f-string built from request.user['username']. Allows SSTI leading to RCE if username contains Jinja2 expressions.", attack:"Login with username: {{config.items()}} or {{''.__class__.__mro__}}", fix:"Use render_template('profile.html', username=username) with auto-escaping." },
+  { id:"VULN-12", sev:"HIGH", title:"Insecure Direct Object Reference", line:"L173", cwe:"CWE-639", cvss:"8.1", tool:"Manual inspection", desc:"Any authenticated user can access any account by changing the user_id path parameter. No authorization check verifies ownership. SSN and credit cards are also returned.", attack:"GET /account/1 as user alice — returns admin's SSN + card", fix:"if user_id != request.user['id'] and request.user['role'] != 'admin': return 403" },
+  { id:"VULN-13", sev:"HIGH", title:"Mass Assignment", line:"L200", cwe:"CWE-915", cvss:"8.0", tool:"Manual inspection", desc:"All JSON keys from request body are iterated and used in UPDATE query column names, allowing attackers to set role='admin' or inflate their own balance.", attack:"POST /update_profile {\"role\": \"admin\", \"balance\": 9999999}", fix:"ALLOWED = {'email', 'display_name'}; data = {k:v for k,v in data.items() if k in ALLOWED}" },
+  { id:"VULN-05", sev:"HIGH", title:"JWT Algorithm Confusion", line:"L67", cwe:"CWE-327", cvss:"7.8", tool:"Manual inspection", desc:"jwt.decode() accepts both HS256 and none algorithms. An attacker can forge a token signed with 'none' — no secret required — and gain arbitrary identity.", attack:"Modify JWT header to {\"alg\":\"none\"}, strip signature, use forged identity", fix:"jwt.decode(token, JWT_SECRET, algorithms=['HS256'])" },
+  { id:"VULN-11", sev:"HIGH", title:"XML External Entity (XXE)", line:"L159", cwe:"CWE-611", cvss:"7.5", tool:"Bandit B314 + B405", desc:"xml.etree.ElementTree parses XML without disabling external entity resolution, enabling SSRF and local file disclosure via crafted XML payloads.", attack:"POST /import_transactions with <!ENTITY xxe SYSTEM 'file:///etc/passwd'>", fix:"import defusedxml.ElementTree as ET — identical API, safe by default." },
+  { id:"VULN-10", sev:"HIGH", title:"Path Traversal", line:"L142", cwe:"CWE-22", cvss:"7.5", tool:"Manual inspection", desc:"User-supplied filename is appended to base path without sanitization. Allows reading arbitrary files accessible to the application process.", attack:"GET /download?file=../../etc/shadow", fix:"safe = os.path.abspath(base_path + filename)\nif not safe.startswith(base_path): return 403" },
+  { id:"VULN-04", sev:"HIGH", title:"Weak Password Hashing (MD5)", line:"L55, L88", cwe:"CWE-327", cvss:"7.4", tool:"Bandit B324", desc:"Passwords are hashed with MD5 without salt. MD5 is cryptographically broken; full rainbow tables exist and modern GPUs crack millions of hashes/second.", attack:"Extract hash from leaked DB → crack via hashcat in minutes", fix:"import bcrypt\nbcrypt.hashpw(password.encode(), bcrypt.gensalt())" },
+  { id:"VULN-15", sev:"HIGH", title:"Missing Rate Limiting + Negative Transfers", line:"L215", cwe:"CWE-770", cvss:"7.2", tool:"Pattern analysis", desc:"The /transfer endpoint has no rate limiting (allows brute force) and no amount validation — negative values can be used to steal balance from other users.", attack:"POST /transfer {\"to_user\":\"attacker\",\"amount\":-500} to drain victim", fix:"Use flask-limiter. Validate amount > 0 and amount <= sender.balance." },
+  { id:"VULN-02", sev:"HIGH", title:"Debug Mode Enabled", line:"L270", cwe:"CWE-94", cvss:"7.0", tool:"Bandit B201", desc:"Flask debug=True enables the Werkzeug interactive debugger, which allows execution of arbitrary Python in the browser if an exception occurs.", attack:"Trigger any exception → browser shows interactive Python REPL", fix:"app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true')" },
+  { id:"VULN-17", sev:"MEDIUM", title:"Wildcard CORS Policy", line:"L255", cwe:"CWE-942", cvss:"6.5", tool:"Pattern analysis", desc:"Access-Control-Allow-Origin: * on an authenticated API allows any web origin to make credentialed cross-origin requests, enabling CSRF-like attacks.", attack:"Malicious site reads /account responses via fetch() with credentials", fix:"ALLOWED_ORIGINS = ['https://app.bank.com']\nif origin in ALLOWED_ORIGINS: response.headers['ACAO'] = origin" },
+  { id:"VULN-18", sev:"MEDIUM", title:"Missing Security Headers", line:"L255", cwe:"CWE-693", cvss:"6.1", tool:"Pattern analysis", desc:"No Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, or HSTS headers. Enables XSS escalation, clickjacking, MIME sniffing, and downgrade attacks.", attack:"iframe embedding for clickjacking; MIME confusion leading to script execution", fix:"Use flask-talisman: Talisman(app, csp={'default-src': \"'self'\"})" },
+  { id:"VULN-01", sev:"MEDIUM", title:"Hardcoded Secrets", line:"L21, L22", cwe:"CWE-259", cvss:"5.9", tool:"Bandit B105", desc:"Flask secret key and JWT secret are hardcoded strings. Anyone with source access (e.g. leaked repo) can forge sessions and JWT tokens.", attack:"Clone repo → extract secrets → forge admin JWT", fix:"app.secret_key = os.environ['FLASK_SECRET_KEY']" },
+  { id:"VULN-16", sev:"MEDIUM", title:"Verbose Error Disclosure", line:"L248", cwe:"CWE-209", cvss:"5.3", tool:"Manual inspection", desc:"Global exception handler returns full Python stack trace including file paths, variable names, and library versions to the client.", attack:"Trigger any error → leak internal code structure and environment info", fix:"Log internally, return only: {'error': 'Internal server error'}" },
+  { id:"VULN-03", sev:"LOW", title:"Credentials Logged in Plaintext", line:"L83", cwe:"CWE-532", cvss:"4.0", tool:"Pattern analysis", desc:"Login handler logs username and plaintext password at INFO level. Any log aggregation system will store user credentials in plaintext.", attack:"Compromise log server → harvest all user passwords", fix:"logger.info(f'Login attempt for user: {username}')  # never log password" },
+  { id:"VULN-19", sev:"LOW", title:"Server Bound to All Interfaces", line:"L270", cwe:"CWE-605", cvss:"3.7", tool:"Bandit B104", desc:"app.run(host='0.0.0.0') exposes the Flask dev server on all network interfaces, including public ones. Combined with debug=True, this is especially dangerous.", attack:"Reach app from any network interface; dev server has no production hardening", fix:"app.run(host='127.0.0.1') in dev; use gunicorn/uwsgi behind nginx in prod." },
+];
+
+const sevOrder = { CRITICAL:0, HIGH:1, MEDIUM:2, LOW:3 };
+const sevColors = { CRITICAL:'badge-critical', HIGH:'badge-high', MEDIUM:'badge-medium', LOW:'badge-low' };
+
+function renderVulns(filter='all') {
+  const list = document.getElementById('vuln-list');
+  list.innerHTML = '';
+  vulns.filter(v => filter === 'all' || v.sev === filter).forEach(v => {
+    const el = document.createElement('div');
+    el.className = 'vuln-card';
+    el.dataset.id = v.id;
+    el.innerHTML = `
+      <div class="vuln-header" onclick="toggleVuln('${v.id}')">
+        <span class="vuln-id">${v.id}</span>
+        <span class="badge ${sevColors[v.sev]}">${v.sev}</span>
+        <span class="vuln-title">${v.title}</span>
+        <span class="vuln-line">${v.line}</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="vuln-body">
+        <div class="vuln-grid">
+          <div class="detail-block"><div class="detail-label">CWE</div><div class="detail-val"><code>${v.cwe}</code></div></div>
+          <div class="detail-block"><div class="detail-label">CVSS Score</div><div class="detail-val"><code>${v.cvss}</code></div></div>
+          <div class="detail-block" style="grid-column:1/-1"><div class="detail-label">Description</div><div class="detail-val">${v.desc}</div></div>
+          <div class="detail-block"><div class="detail-label">Detection Tool</div><div class="detail-val"><code>${v.tool}</code></div></div>
+        </div>
+        <div class="attack-box"><div class="attack-title">Attack Vector</div><div class="attack-val">${v.attack}</div></div>
+        <div class="fix-box"><div class="fix-title">Remediation</div><div class="fix-code">${v.fix}</div></div>
+      </div>`;
+    list.appendChild(el);
+  });
+}
+
+function toggleVuln(id) {
+  const card = document.querySelector(`[data-id="${id}"]`);
+  card.classList.toggle('expanded');
+}
+
+function filterVulns(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderVulns(sev);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['findings','owasp','remediation'][i] === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+renderVulns();
+</script>
